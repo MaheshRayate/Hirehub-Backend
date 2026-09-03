@@ -1,7 +1,8 @@
-import { createUser,loginUser } from "../services/auth.service.js";
+import { createUser,loginUser,createRecruiter } from "../services/auth.service.js";
 import AppError from "../utils/AppError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
+// JOBSEEKERS SIGNUP
 export const signup = asyncHandler(async (req, res) => {
   const { name, email, password, role, phone } = req.body;
 
@@ -57,4 +58,44 @@ export const login = asyncHandler(async (req, res) => {
       user: result.user,
     },
   });
+});
+
+//RECRUITERS SIGNUP
+
+export const recruiterSignup=asyncHandler(async (req,res)=>{
+  const {
+    name,
+    email,
+    password,
+    phone,
+  } = req.body;
+
+  if (!name || !email || !password) {
+    throw new AppError(
+      "Provide Name, Email and Password",
+      400
+    );
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const result = await createRecruiter({
+    name: name.trim(),
+    email: normalizedEmail,
+    password,
+    phone: phone?.trim(),
+  });
+
+  return res.status(201).json({
+    success: true,
+    message:
+      "Recruiter account created successfully. Waiting for admin approval.",
+    data: {
+      token: result.token,
+      user: result.user,
+      recruiter: result.recruiter,
+    },
+  });
+
+
 });
