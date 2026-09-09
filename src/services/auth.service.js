@@ -3,37 +3,80 @@ import pool from "../config/db.js";
 import { generateToken } from "../utils/jwt.js";
 import AppError from "../utils/AppError.js";
 
-export const createUser = async ({ name, email, password, role, phone }) => {
-  const [existingUsers] = await pool.execute(
-    `SELECT id from users WHERE email=?`,
-    [email],
-  );
+export const createUser = async ({
+  name,
+  email,
+  password,
+  role,
+  phone,
+}) => {
+  const connection = await pool.getConnection();
 
-  if (existingUsers.length > 0) {
-    throw new AppError("Email is already registered!", 409);
+  try {
+    await connection.beginTransaction();
+
+    const [existingUsers] = await connection.execute(
+      `SELECT id
+       FROM users
+       WHERE email = ?`,
+      [email]
+    );
+
+    if (existingUsers.length > 0) {
+      throw new AppError(
+        "Email is already registered!",
+        409
+      );
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const [result] = await connection.execute(
+      `INSERT INTO users
+       (name, email, password_hash, role, phone, password_changed_at)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [
+        name,
+        email,
+        passwordHash,
+        role,
+        phone || null,
+      ]
+    );
+
+    const userId = result.insertId;
+
+    // Create job seeker profile
+    if (role === "JOB_SEEKER") {
+      await connection.execute(
+        `INSERT INTO job_seekers (user_id)
+         VALUES (?)`,
+        [userId]
+      );
+    }
+
+    await connection.commit();
+
+    const user = {
+      id: userId,
+      name,
+      email,
+      role,
+      phone: phone || null,
+    };
+
+    const token = generateToken(user);
+
+    return {
+      user,
+      token,
+    };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
   }
-
-  const passwordHash = await bcrypt.hash(password, 12);
-
-  const [result] = await pool.execute(
-    `INSERT INTO users (name,email,password_hash,role,phone) values (?,?,?,?,?)`,
-    [name, email, passwordHash, role, phone || null],
-  );
-
-  const user = {
-    id: result.insertId,
-    name,
-    email,
-    role,
-    phone: phone || null,
-  };
-
-  const token = generateToken(user);
-
-  return {
-    user,
-    token,
-  };
 };
 
 export const loginUser = async ({ email, password }) => {
@@ -86,13 +129,17 @@ export const loginUser = async ({ email, password }) => {
   };
 };
 
+
 export const createRecruiter = async ({
   name,
   email,
   password,
   phone,
+  company_id
 }) => {
   const connection = await pool.getConnection();
+  console.log(company_id);
+  
 
   try {
     await connection.beginTransaction();
@@ -104,6 +151,8 @@ export const createRecruiter = async ({
        WHERE email = ?`,
       [email]
     );
+
+    console.log(company_id);
 
     if (existingUsers.length > 0) {
       throw new AppError(
@@ -145,8 +194,8 @@ export const createRecruiter = async ({
           company_id,
           status
         )
-       VALUES (?, NULL, 'PENDING')`,
-      [userId]
+       VALUES (?, ?, 'PENDING')`,
+      [userId,company_id]
     );
 
     // 5. Commit transaction
@@ -161,14 +210,18 @@ export const createRecruiter = async ({
       phone: phone || null,
     };
 
+    console.log(company_id);
+
     const recruiter = {
       id: recruiterResult.insertId,
       user_id: userId,
-      company_id: null,
+      company_id: company_id,
       status: "PENDING",
     };
 
     const token = generateToken(user);
+
+    console.log(recruiter);
 
     return {
       user,

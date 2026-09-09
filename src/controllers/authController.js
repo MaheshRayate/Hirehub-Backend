@@ -1,4 +1,8 @@
-import { createUser,loginUser,createRecruiter } from "../services/auth.service.js";
+import {
+  createUser,
+  loginUser,
+  createRecruiter,
+} from "../services/auth.service.js";
 import AppError from "../utils/AppError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
@@ -7,7 +11,7 @@ export const signup = asyncHandler(async (req, res) => {
   const { name, email, password, role, phone } = req.body;
 
   if (!name || !email || !password) {
-    throw new AppError("Provide Name, Email and Password",400) ;
+    throw new AppError("Provide Name, Email and Password", 400);
   }
 
   const allowedRoles = ["JOB_SEEKER", "RECRUITER"];
@@ -15,7 +19,7 @@ export const signup = asyncHandler(async (req, res) => {
   const userRole = role || "JOB_SEEKER";
 
   if (!allowedRoles.includes(userRole)) {
-    throw new AppError("Invalid Role",400);
+    throw new AppError("Invalid Role", 400);
   }
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -27,6 +31,8 @@ export const signup = asyncHandler(async (req, res) => {
     role: userRole,
     phone: phone?.trim(),
   });
+
+  console.log(result.token,result.user);
 
   return res.status(201).json({
     success: true,
@@ -42,13 +48,15 @@ export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    throw new AppError("Provide Email and Password",400)
+    throw new AppError("Provide Email and Password", 400);
   }
 
   const result = await loginUser({
     email: email.trim().toLowerCase(),
     password,
   });
+
+  console.log(result.token,result.user);
 
   return res.status(200).json({
     success: true,
@@ -62,19 +70,11 @@ export const login = asyncHandler(async (req, res) => {
 
 //RECRUITERS SIGNUP
 
-export const recruiterSignup=asyncHandler(async (req,res)=>{
-  const {
-    name,
-    email,
-    password,
-    phone,
-  } = req.body;
+export const recruiterSignup = asyncHandler(async (req, res) => {
+  const { name, email, password, phone } = req.body;
 
   if (!name || !email || !password) {
-    throw new AppError(
-      "Provide Name, Email and Password",
-      400
-    );
+    throw new AppError("Provide Name, Email and Password", 400);
   }
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -84,7 +84,10 @@ export const recruiterSignup=asyncHandler(async (req,res)=>{
     email: normalizedEmail,
     password,
     phone: phone?.trim(),
+    company_id:req.body.company_id
   });
+
+  console.log(result.recruiter);
 
   return res.status(201).json({
     success: true,
@@ -96,6 +99,13 @@ export const recruiterSignup=asyncHandler(async (req,res)=>{
       recruiter: result.recruiter,
     },
   });
+});
 
+//LOGOUT
 
+export const logout = asyncHandler(async (req, res) => {
+  return res.status(200).json({
+    success: true,
+    message: "Logged out successfully",
+  });
 });

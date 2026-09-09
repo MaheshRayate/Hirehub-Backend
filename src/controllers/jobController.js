@@ -6,7 +6,7 @@ export const createJob = asyncHandler(async (req, res) => {
   const {
     title,
     description,
-    companyId,
+    companyId=req.recruiter.company_id,
     location,
     employmentType,
     experienceMin,
@@ -17,9 +17,9 @@ export const createJob = asyncHandler(async (req, res) => {
   } = req.body;
 
   // 1. Required fields
-  if (!title || !description || !companyId || !employmentType) {
+  if (!title || !description || !employmentType) {
     throw new AppError(
-      "Title, description, companyId and employmentType are required",
+      "Title, description and employmentType are required",
       400
     );
   }
