@@ -1,5 +1,5 @@
 import express from "express";
-import { login, signup,recruiterSignup,logout } from "../controllers/authController.js";
+import { login, signup,recruiterSignup,logout, getMe } from "../controllers/authController.js";
 import protect from "../middlewares/protect.js";
 
 
@@ -9,5 +9,6 @@ router.post("/signup", signup);
 router.post("/login",login);
 router.post("/logout",protect,logout);
 router.post("/recruiter-signup", recruiterSignup);
+router.get("/me",protect, getMe);
 
 export default router;

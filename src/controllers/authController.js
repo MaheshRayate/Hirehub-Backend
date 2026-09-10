@@ -109,3 +109,12 @@ export const logout = asyncHandler(async (req, res) => {
     message: "Logged out successfully",
   });
 });
+
+export const getMe = asyncHandler(async (req, res) => {
+  return res.status(200).json({
+    success: true,
+    data: {
+      user: req.user,
+    },
+  });
+});

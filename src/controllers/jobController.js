@@ -1,4 +1,4 @@
-import { createJob as createJobService } from "../services/job.service.js";
+import { createJob as createJobService, getAllJobs } from "../services/job.service.js";
 import AppError from "../utils/AppError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
@@ -127,6 +127,17 @@ export const createJob = asyncHandler(async (req, res) => {
     message: "Job created successfully",
     data: {
       job,
+    },
+  });
+});
+
+export const getJobs = asyncHandler(async (req, res) => {
+  const jobs = await getAllJobs();
+
+  return res.status(200).json({
+    success: true,
+    data: {
+      jobs,
     },
   });
 });

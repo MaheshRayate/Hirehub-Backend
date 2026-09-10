@@ -94,3 +94,42 @@ export const createJob = async ({
 
   return jobs[0];
 };
+
+export const getAllJobs = async () => {
+  const [jobs] = await pool.execute(
+    `SELECT
+      j.id,
+      j.title,
+      j.description,
+      j.location,
+      j.employment_type,
+      j.experience_min,
+      j.experience_max,
+      j.vacancies,
+      j.salary_min,
+      j.salary_max,
+      j.skills,
+      j.education,
+      j.status,
+      j.created_at,
+      j.updated_at,
+
+
+      c.id AS company_id,
+      c.name AS company_name,
+      c.logo AS company_logo,
+      c.location AS company_location
+
+     FROM jobs j
+
+     INNER JOIN companies c
+       ON j.company_id = c.id
+
+     WHERE j.status = 'ACTIVE'
+       AND c.status = 'APPROVED'
+
+     ORDER BY j.created_at DESC`
+  );
+
+  return jobs;
+};
