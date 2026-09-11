@@ -12,7 +12,8 @@ export const createJob = async ({
   experienceMax,
   salaryMin,
   salaryMax,
-  skills,
+  vacancies,
+  skills
 }) => {
   // 1. Find recruiter and their company
   const [recruiters] = await pool.execute(
@@ -51,9 +52,10 @@ export const createJob = async ({
       experience_max,
       salary_min,
       salary_max,
+      vacancies,
       skills
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)`,
     [
       title,
       description,
@@ -65,6 +67,7 @@ export const createJob = async ({
       experienceMax ?? null,
       salaryMin ?? null,
       salaryMax ?? null,
+      vacancies ?? 1,
       skills || null,
     ],
   );
@@ -95,17 +98,191 @@ export const createJob = async ({
   return jobs[0];
 };
 
-export const getAllJobs = async () => {
+export const getAllJobs = async ({
+  search,
+  locations,
+  experienceMin,
+  experienceMax,
+  salaryMin,
+  salaryMax,
+  freshness,
+  sort = "newest",
+  workMode,
+  page = 1,
+  limit = 10,
+}) => {
+  let whereQuery = `
+    FROM jobs j
+
+    INNER JOIN companies c
+      ON j.company_id = c.id
+
+    WHERE j.status = 'ACTIVE'
+      AND c.status = 'APPROVED'
+  `;
+
+  const params = [];
+
+  // Search
+  if (search) {
+    whereQuery += `
+      AND (
+        j.title LIKE ?
+        OR j.skills LIKE ?
+        OR j.location LIKE ?
+        OR c.name LIKE ?
+      )
+    `;
+
+    const searchValue = `%${search}%`;
+
+    params.push(
+      searchValue,
+      searchValue,
+      searchValue,
+      searchValue
+    );
+  }
+
+  // Location
+  if (locations && locations.length > 0) {
+    const locationConditions = locations.map(
+      () => `j.location LIKE ?`
+    );
+
+    whereQuery += `
+      AND (
+        ${locationConditions.join(" OR ")}
+      )
+    `;
+
+    locations.forEach((location) => {
+      params.push(`%${location}%`);
+    });
+  }
+
+  // Experience
+  if (
+    experienceMin !== undefined &&
+    experienceMax !== undefined
+  ) {
+    whereQuery += `
+      AND j.experience_max >= ?
+      AND j.experience_min <= ?
+    `;
+
+    params.push(
+      experienceMin,
+      experienceMax
+    );
+  } else if (experienceMin !== undefined) {
+    whereQuery += `
+      AND j.experience_max >= ?
+    `;
+
+    params.push(experienceMin);
+  } else if (experienceMax !== undefined) {
+    whereQuery += `
+      AND j.experience_min <= ?
+    `;
+
+    params.push(experienceMax);
+  }
+
+  // Salary
+  if (
+    salaryMin !== undefined &&
+    salaryMax !== undefined
+  ) {
+    whereQuery += `
+      AND j.salary_max >= ?
+      AND j.salary_min <= ?
+    `;
+
+    params.push(
+      salaryMin,
+      salaryMax
+    );
+  } else if (salaryMin !== undefined) {
+    whereQuery += `
+      AND j.salary_max >= ?
+    `;
+
+    params.push(salaryMin);
+  } else if (salaryMax !== undefined) {
+    whereQuery += `
+      AND j.salary_min <= ?
+    `;
+
+    params.push(salaryMax);
+  }
+
+  // Freshness
+  if (freshness !== undefined) {
+    whereQuery += `
+      AND j.created_at >= DATE_SUB(
+        NOW(),
+        INTERVAL ${freshness} DAY
+      )
+    `;
+  }
+
+  // Work mode
+  if (workMode) {
+    whereQuery += `
+      AND j.work_mode = ?
+    `;
+
+    params.push(workMode);
+  }
+
+  // --------------------------------
+  // Count matching jobs
+  // --------------------------------
+
+  const [countResult] = await pool.execute(
+    `SELECT COUNT(*) AS total
+     ${whereQuery}`,
+    params
+  );
+
+  const total = Number(countResult[0].total);
+
+  // --------------------------------
+  // Pagination
+  // --------------------------------
+
+  const offset = (page - 1) * limit;
+
+  // --------------------------------
+  // Sorting
+  // --------------------------------
+
+  const sortOptions = {
+    newest: "j.created_at DESC",
+    oldest: "j.created_at ASC",
+    salary_high: "j.salary_max DESC",
+    salary_low: "j.salary_min ASC",
+  };
+
+  const orderBy =
+    sortOptions[sort] || sortOptions.newest;
+
+  // --------------------------------
+  // Fetch jobs
+  // --------------------------------
+
   const [jobs] = await pool.execute(
     `SELECT
       j.id,
       j.title,
       j.description,
+      j.vacancies,
       j.location,
+      j.work_mode,
       j.employment_type,
       j.experience_min,
       j.experience_max,
-      j.vacancies,
       j.salary_min,
       j.salary_max,
       j.skills,
@@ -114,22 +291,35 @@ export const getAllJobs = async () => {
       j.created_at,
       j.updated_at,
 
-
       c.id AS company_id,
       c.name AS company_name,
       c.logo AS company_logo,
       c.location AS company_location
 
-     FROM jobs j
+     ${whereQuery}
 
-     INNER JOIN companies c
-       ON j.company_id = c.id
-
-     WHERE j.status = 'ACTIVE'
-       AND c.status = 'APPROVED'
-
-     ORDER BY j.created_at DESC`
+     ORDER BY ${orderBy}
+     LIMIT ? OFFSET ?`,
+    [
+      ...params,
+      limit,
+      offset,
+    ]
   );
 
-  return jobs;
+  const totalPages =
+    Math.ceil(total / limit);
+
+  return {
+    jobs,
+
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
+    },
+  };
 };
