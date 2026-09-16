@@ -310,6 +310,8 @@ export const getAllJobs = async ({
   const totalPages =
     Math.ceil(total / limit);
 
+  console.log(jobs);
+
   return {
     jobs,
 

@@ -2,6 +2,7 @@ import {
   createUser,
   loginUser,
   createRecruiter,
+  logoutUser,
 } from "../services/auth.service.js";
 import AppError from "../utils/AppError.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -104,6 +105,13 @@ export const recruiterSignup = asyncHandler(async (req, res) => {
 //LOGOUT
 
 export const logout = asyncHandler(async (req, res) => {
+  const { jti, exp } = req.token;
+
+  await logoutUser({
+    jti,
+    expiresAt: new Date(exp * 1000),
+  });
+
   return res.status(200).json({
     success: true,
     message: "Logged out successfully",
@@ -118,3 +126,5 @@ export const getMe = asyncHandler(async (req, res) => {
     },
   });
 });
+
+

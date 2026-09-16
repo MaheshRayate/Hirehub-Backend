@@ -244,3 +244,15 @@ export const createRecruiter = async ({
     connection.release();
   }
 };
+
+export const logoutUser = async ({
+  jti,
+  expiresAt,
+}) => {
+  await pool.execute(
+    `INSERT IGNORE INTO revoked_tokens
+      (jti, expires_at)
+     VALUES (?, ?)`,
+    [jti, expiresAt]
+  );
+};
